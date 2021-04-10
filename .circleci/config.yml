@@ -1,0 +1,145 @@
+version: 2
+
+# Default configurations
+terraform: &terraform
+  docker:
+    - image: $ECR_REPO_URL:${CIRCLE_BRANCH}
+  working_directory: /tmp/workspace
+
+jobs:
+# Planning the terraform
+  plan_infrastructure:
+    <<: *terraform
+    steps:
+      - checkout
+      - run:
+          name: Version Check
+          command: terraform version && reform --version 
+      - run:
+          name: reform plan infrastructure
+          command: reform plan --quadrant=${CIRCLE_BRANCH} --project infrastructure
+      - run:
+          name: reform plan services
+          command: reform plan --quadrant=${CIRCLE_BRANCH} --project services
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+#      - run:
+#          name: Send Slack Notice
+#          command: |
+#            curl -X POST --data-urlencode "payload={\"channel\": \"#devops-iac\", \"username\": \"circleci\", \"text\": \"New Proposed reform changes in *${CIRCLE_BRANCH}* environment. Click <https://#circleci.com/workflow-run/${CIRCLE_WORKFLOW_ID}|here> for details.\", \"icon_emoji\": \":terraform:\"}" ${SLACK_HOOK_URL}
+
+  apply_infrastructure:
+    <<: *terraform
+    working_directory: /tmp/workspace
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: reform apply infrastructure
+          command: reform apply --quadrant=${CIRCLE_BRANCH} --project infrastructure
+      - run:
+          name: reform apply services
+          command: reform apply --quadrant=${CIRCLE_BRANCH} --project services
+
+        
+# Planning the terraform
+  plan_global:
+    <<: *terraform
+    steps:
+      - checkout
+      - run:
+          name: Version Check
+          command: terraform version && reform --version
+      - run:
+          name: reform plan global
+          command: reform plan --quadrant=global --project global
+
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+#      - run:
+#          name: Send Slack Notice
+#          command: |
+#            curl -X POST --data-urlencode "payload={\"channel\": \"#devops-iac\", \"username\": \"circleci\", \"text\": \"New Proposed reform changes in *${CIRCLE_BRANCH}* environment. Click <https://#circleci.com/workflow-run/${CIRCLE_WORKFLOW_ID}|here> for details.\", \"icon_emoji\": \":terraform:\"}" ${SLACK_HOOK_URL}
+
+  apply_global:
+    <<: *terraform
+    working_directory: /tmp/workspace
+    steps:
+      - attach_workspace:
+          at: /tmp/workspace
+      - run:
+          name: reform apply global
+          command: reform apply --quadrant=global --project global
+
+  master:
+    docker:
+      - image: 861281107445.dkr.ecr.us-west-2.amazonaws.com/circle-docker-base:latest
+    working_directory: /tmp/workspace
+    steps:
+      - checkout
+      - setup_remote_docker:
+          version: 19.03.13
+          docker_layer_caching: true
+      - run:
+          name: Build Image
+          command: |
+            get_deployment_key
+            cp ~/.ssh/github.private deploy_key
+            cd .docker && ./fetch_local_packages.sh
+            cd ..
+            ./make.sh --squash --target=dev,stage,master
+
+infra_workflow_filters: &infra_workflow_filters
+  filters:
+    branches:
+      only:
+        - prod
+        - stage
+        - dev
+
+
+global_workflow_filters: &global_workflow_filters
+  filters:
+    branches:
+      only:
+        - global
+
+build_images: &build_images
+  filters:
+    branches:
+      only:
+        - master
+
+workflows:
+  version: 2
+  test-build-plan-apply:
+    jobs:
+      - plan_infrastructure:
+          <<: *infra_workflow_filters
+
+      - approve_infrastructure:
+          <<: *infra_workflow_filters
+          type: approval
+          requires:
+            - plan_infrastructure
+      - apply_infrastructure:
+          <<: *infra_workflow_filters
+          requires:
+            - approve_infrastructure
+      - plan_global:
+          <<: *global_workflow_filters
+      - approve_global:
+          <<: *global_workflow_filters
+          type: approval
+          requires:
+            - plan_global
+      - apply_global:
+          <<: *global_workflow_filters
+          requires:
+            - approve_global
+      - master:
+          <<: *build_images

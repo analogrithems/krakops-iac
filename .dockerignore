@@ -1,0 +1,9 @@
+*.zip
+.git
+Dockerfile
+config
+configs
+contribs
+make.sh
+modules
+projects

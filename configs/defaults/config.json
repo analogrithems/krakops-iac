@@ -1,0 +1,26 @@
+{
+  "state": {
+    "bucket": "krakops-iac",
+    "encrypt": true,
+    "region": "us-west-1"
+  },
+  "global": {
+    "master_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFrhLPR9lJF8sKLhzNg5THyrBuwxxxDMMJoEbzYEWm+u aaron.collinsa+kraken@gmail.com",
+    "primary_domain": "krakops.com",
+    "vpc_name": "default",
+    "vpc_network": "10.40.0.0/16"
+  },
+  "swimlanes": {
+    "*": {
+      "domain": "must override in every environment",
+      "services": {
+        "litecoin-node": {
+          "count": 1,
+          "configstore": {},
+          "eks_type": "FARGATE",
+          "image": "001518439974.dkr.ecr.us-west-1.amazonaws.com/litecoin:devops"
+        }
+      }
+    }
+  }
+}

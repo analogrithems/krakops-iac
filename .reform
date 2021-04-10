@@ -1,0 +1,7 @@
+[global]
+
+[dev]
+key = dev
+bucket = krakops-iac
+region = us-east-1
+
