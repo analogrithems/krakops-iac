@@ -7,6 +7,7 @@
   "global": {
     "master_public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFrhLPR9lJF8sKLhzNg5THyrBuwxxxDMMJoEbzYEWm+u aaron.collinsa+kraken@gmail.com",
     "primary_domain": "krakops-dev.com",
+    "random_suffix": "false",
     "vpc_name": "dev",
     "vpc_network": "10.30.0.0/16"
   },

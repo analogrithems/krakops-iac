@@ -7,7 +7,7 @@
 
 
 
-
+            
 # Swimlane: devops, Service: litecoin-node, SecretName: password
 resource "aws_ssm_parameter" "devops_litecoin-node_password" {
   name      = "/${var.vpc_name}/devops/litecoin-node/litecoin-node/v1/password"
@@ -19,15 +19,15 @@ resource "aws_ssm_parameter" "devops_litecoin-node_password" {
     local.common_tags,
     {
       "client_name"  = "devops"
-      "cluster_name" = "${var.vpc_name}-devops"
-      "Name"         = "password"
-      "Service"      = "litecoin-node"
+      "cluster_name"  = "${var.vpc_name}-devops"
+      "Name"    = "password"
+      "Service" = "litecoin-node"
     },
   )
 }
 
 
-
+        
 # Swimlane: devops, Service: litecoin-node, SecretName: username
 resource "aws_ssm_parameter" "devops_litecoin-node_username" {
   name      = "/${var.vpc_name}/devops/litecoin-node/litecoin-node/v1/username"
@@ -39,13 +39,13 @@ resource "aws_ssm_parameter" "devops_litecoin-node_username" {
     local.common_tags,
     {
       "client_name"  = "devops"
-      "cluster_name" = "${var.vpc_name}-devops"
-      "Name"         = "username"
-      "Service"      = "litecoin-node"
+      "cluster_name"  = "${var.vpc_name}-devops"
+      "Name"    = "username"
+      "Service" = "litecoin-node"
     },
   )
 }
 
 
-
+            
 

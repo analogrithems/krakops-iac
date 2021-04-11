@@ -18,6 +18,9 @@ variable "vpc_name" {
 variable "vpc_network" {
   default = "10.30.0.0/16"
 }
+variable "random_suffix" {
+  default = "false"
+}
 
 # State Configs
 
