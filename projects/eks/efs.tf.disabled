@@ -1,0 +1,145 @@
+/**
+ *
+ * This is disabled since AWS EKS fargate doesn't support dynamic provisioning of efs yet, they are still working on it
+ * see https://aws.amazon.com/blogs/containers/running-stateful-workloads-with-amazon-eks-on-aws-fargate-using-amazon-efs/
+ *
+ */
+resource "aws_efs_file_system" "efs_data" {
+  creation_token   = "${local.cluster_name}-eks"
+  encrypted        = true
+  performance_mode = "generalPurpose" #maxIO
+  throughput_mode  = "bursting"
+  tags = merge(
+    local.common_tags,
+    {
+      "Name" = "${local.cluster_name}-EKS-Shared"
+    },
+  )
+}
+
+resource "aws_efs_file_system_policy" "efs_data" {
+  file_system_id = aws_efs_file_system.efs_data.id
+
+  policy = jsonencode({
+    "Version" : "2012-10-17",
+    "Statement" : [
+      {
+        "Effect" : "Allow",
+        "Principal" : {
+          "AWS" : "*"
+        },
+        "Action": [
+            "elasticfilesystem:ClientMount",
+            "elasticfilesystem:ClientWrite"
+        ],
+        "Resource" : aws_efs_file_system.efs_data.arn,
+        "Condition": {
+            "Bool": {
+                "aws:SecureTransport": "true"
+            }
+        }
+      }
+    ]
+  })
+}
+
+
+resource "aws_efs_mount_target" "EKS_mount" {
+  count           = length(module.vpc.private_subnets)
+  file_system_id  = aws_efs_file_system.efs_data.id
+  security_groups = [module.eks.cluster_security_group_id]
+  subnet_id       = module.vpc.private_subnets[count.index]
+}
+
+/**
+ * Fargate preinstalls this now
+resource "kubernetes_csi_driver" "efs" {
+  metadata {
+    name = "efs.csi.aws.com"
+  }
+
+  spec {
+    attach_required = false
+    volume_lifecycle_modes = [
+      "Persistent"
+    ]
+  }
+}
+*/
+resource "kubernetes_storage_class" "efs" {
+  metadata {
+    name = local.storage_class_name
+  }
+  storage_provisioner = "efs.csi.aws.com"
+  reclaim_policy      = "Retain"
+}
+
+resource "kubernetes_cluster_role_binding" "efs" {
+  metadata {
+    name = "efs_role_pre"
+  }
+  role_ref {
+    api_group = "rbac.authorization.k8s.io"
+    kind      = "ClusterRole"
+    name      = "cluster-admin"
+  }
+  subject {
+    kind      = "ServiceAccount"
+    name      = "default"
+    namespace = kubernetes_namespace.crypto_node.metadata[0].name
+  }
+}
+
+/* eks csi driver can not auto provision efs yet, it can only do ELB which requires ec2 instances */
+
+resource "aws_efs_access_point" "efs_data" {
+  file_system_id = aws_efs_file_system.efs_data.id
+}
+
+resource "kubernetes_persistent_volume" "efs_data" {
+  metadata {
+    name = "${local.namespace}-efs"
+
+    labels = {
+      app = local.app
+    }
+  }
+
+  spec {
+    access_modes = ["ReadWriteOnce"]
+
+    capacity = {
+      storage = "100Gi"
+    }
+
+    volume_mode                      = "Filesystem"
+    persistent_volume_reclaim_policy = "Retain"
+    storage_class_name               = local.storage_class_name
+
+    persistent_volume_source {
+      csi {
+        driver        = "efs.csi.aws.com"
+        volume_handle = aws_efs_file_system.efs_data.id
+      }
+    }
+  }
+}
+
+resource "kubernetes_persistent_volume_claim" "efs_data" {
+  metadata {
+    name      = "${local.app}-efs"
+    namespace = kubernetes_namespace.crypto_node.metadata[0].name
+  }
+
+  spec {
+    access_modes       = ["ReadWriteOnce"]
+    storage_class_name = local.storage_class_name
+    resources {
+      requests = {
+        storage = "90Gi"
+      }
+    }
+    volume_name = kubernetes_persistent_volume.efs_data.metadata.0.name
+  }
+}
+

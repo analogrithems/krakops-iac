@@ -1,3 +1,9 @@
+/**
+ * 
+ * aws --profile dev-user iam list-roles --query "Roles[?RoleName == 'dev-role'].[RoleName, Arn]"
+ * aws --profile dev-user sts assume-role --role-arn "arn:aws:iam::001518439974:role/dev-role" --role-session-name AWSCLI-Session
+ *
+ */
 resource "aws_iam_role" "no_access" {
   assume_role_policy = <<EOF
 {
